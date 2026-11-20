@@ -13,38 +13,40 @@ import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Environment
-import android.os.Parcelable
 import android.provider.OpenableColumns
 import android.text.InputType
 import android.util.Patterns
 import android.view.View
-import android.widget.*
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.rotationMatrix
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProvider
 import com.github.kittinunf.fuel.core.FuelManager
 import com.github.kittinunf.fuel.core.Headers
-import com.xiaopo.flying.sticker.*
+import com.xiaopo.flying.sticker.BitmapStickerIcon
+import com.xiaopo.flying.sticker.DrawableSticker
+import com.xiaopo.flying.sticker.Sticker
 import com.xiaopo.flying.sticker.StickerView.OnStickerOperationListener
 import com.xiaopo.flying.sticker.iconEvents.DeleteIconEvent
 import com.xiaopo.flying.sticker.iconEvents.FlipHorizontallyEvent
 import com.xiaopo.flying.sticker.iconEvents.FlipVerticallyEvent
 import com.xiaopo.flying.sticker.iconEvents.ZoomIconEvent
-import kotlinx.android.synthetic.main.activity_main.view.*
 import timber.log.Timber
 import xyz.ruin.droidref.databinding.ActivityMainBinding
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerViewModel: StickerViewModel
     private lateinit var binding: ActivityMainBinding
-    private var rotateToastShowed = false;
+    private var rotateToastShowed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.plant(Timber.DebugTree())
@@ -59,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         setupIcons()
         setupButtons()
         handleIntent(intent)
-        intent.type = null // Don't run again if rotated/etc.
+        intent.type = null
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -87,8 +89,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleSendMultipleImages(intent: Intent) {
-        intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)?.let { images ->
-            images.forEach { (it as? Uri)?.let(this@MainActivity::doAddSticker) }
+        intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.let { images ->
+            images.forEach { it?.let(this@MainActivity::doAddSticker) }
         }
     }
 
@@ -107,8 +109,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupIcons() {
-        //currently you can config your own icons and icon event
-        //the event you can custom
         val deleteIcon = BitmapStickerIcon(
             ContextCompat.getDrawable(
                 this,
@@ -162,8 +162,8 @@ class MainActivity : AppCompatActivity() {
         input.inputType = InputType.TYPE_CLASS_TEXT
         input.setText(defaultFileName, TextView.BufferType.EDITABLE)
         builder.setView(input)
-        builder.setPositiveButton("OK") { dialog, which -> doSave(input.text.toString()) }
-        builder.setNegativeButton("Cancel") { dialog, which -> dialog.cancel() }
+        builder.setPositiveButton("OK") { dialog, _ -> doSave(input.text.toString()) }
+        builder.setNegativeButton("Cancel") { dialog, _ -> dialog.cancel() }
         builder.show()
     }
 
@@ -207,7 +207,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun getFileNameOfUri(uri: Uri): String {
         var result: String? = null
-        if (uri.scheme.equals("content")) {
+        if (uri.scheme == "content") {
             val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
             try {
                 if (cursor != null && cursor.moveToFirst()) {
@@ -241,12 +241,9 @@ class MainActivity : AppCompatActivity() {
         try {
             val stream = contentResolver.openInputStream(file)!!
             StickerViewSerializer().deserialize(stickerViewModel, stream, resources)
-            //Toast.makeText(this, "Loaded $fileName", Toast.LENGTH_SHORT).show()
             stickerViewModel.currentFileName = fileName
             stickerViewModel.isLocked.value = true
         } catch (e: IOException) {
-            // Unable to create file, likely because external storage is
-            // not currently mounted.
             Timber.e(e, "Error writing %s", file)
             Toast.makeText(this, "Error reading $file", Toast.LENGTH_LONG).show()
         }
@@ -268,9 +265,11 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent()
         intent.type = "image/*"
         intent.action = Intent.ACTION_GET_CONTENT
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true) // ← ADDED: allow multiple selection
-        startActivityForResult(Intent.createChooser(intent, "Select Images"),
-            INTENT_PICK_IMAGE)
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        startActivityForResult(
+            Intent.createChooser(intent, "Select Images"),
+            INTENT_PICK_IMAGE
+        )
     }
 
     private fun doAddSticker(file: Uri) {
@@ -283,7 +282,6 @@ class MainActivity : AppCompatActivity() {
         if (bitmap == null) {
             Toast.makeText(this, "Could not decode image", Toast.LENGTH_SHORT).show()
         } else {
-            // Resize absurdly large images
             val totalSize = bitmap.width * bitmap.height
             val newBitmap = if (totalSize > MAX_SIZE_PIXELS) {
                 val scaleFactor: Float = MAX_SIZE_PIXELS.toFloat() / totalSize.toFloat()
@@ -310,7 +308,6 @@ class MainActivity : AppCompatActivity() {
         if (resultCode == Activity.RESULT_OK) {
             when (requestCode) {
                 INTENT_PICK_IMAGE -> {
-                    // ← MODIFIED: handle multiple images from clipData
                     val clipData = data?.clipData
                     if (clipData != null) {
                         for (i in 0 until clipData.itemCount) {
@@ -372,11 +369,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun setUIVisibility(isToggled: Boolean) {
         if (isToggled) {
-            binding.toolbarTop.visibility = View.GONE; binding.toolbarBottom.visibility = View.GONE;
+            binding.toolbarTop.visibility = View.GONE
+            binding.toolbarBottom.visibility = View.GONE
             val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_off_24)
             binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
         } else {
-            binding.toolbarTop.visibility = View.VISIBLE; binding.toolbarBottom.visibility = View.VISIBLE;
+            binding.toolbarTop.visibility = View.VISIBLE
+            binding.toolbarBottom.visibility = View.VISIBLE
             val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_24)
             binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
         }
@@ -407,7 +406,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    internal class FetchImageFromLinkTask(val text: String, val context: MainActivity) : AsyncTask() {
+    internal class FetchImageFromLinkTask(
+        val text: String,
+        val context: MainActivity
+    ) : AsyncTask<Void, Void, Void>() {
         override fun onPreExecute() {
             super.onPreExecute()
             context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
@@ -416,37 +418,35 @@ class MainActivity : AppCompatActivity() {
         override fun doInBackground(vararg params: Void?): Void? {
             try {
                 val fuel = FuelManager()
-                fuel.baseHeaders = mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
+                fuel.baseHeaders = mapOf(
+                    Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0"
+                )
                 fuel.head(text).response { _, head, result ->
                     result.fold({
                         val contentType = head.headers[Headers.CONTENT_TYPE]
                         if (!contentType.any { it.startsWith("image/") }) {
-                            Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG)
-                                .show()
+                            Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG).show()
                             context.binding.activityMain.progressBarHolder.visibility = View.GONE
                             return@response
                         }
-                        fuel.get(text)
-                            .response { _, _, body ->
-                                body.fold({
-                                    val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
-                                    context.doAddSticker(bitmap)
-                                    context.binding.activityMain.progressBarHolder.visibility = View.GONE
-                                }, {
-                                    Toast.makeText(
-                                        context,
-                                        "Failed to download image: $it",
-                                        Toast.LENGTH_LONG
-                                    )
-                                        .show()
-                                    context.binding.activityMain.progressBarHolder.visibility = View.GONE
-                                    Timber.e(it)
-                                })
-                            }
+                        fuel.get(text).response { _, _, body ->
+                            body.fold({
+                                val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
+                                context.doAddSticker(bitmap)
+                                context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                            }, {
+                                Toast.makeText(
+                                    context,
+                                    "Failed to download image: $it",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                context.binding.activityMain.progressBarHolder.visibility = View.GONE
+                                Timber.e(it)
+                            })
+                        }
                     }, {
                         context.binding.activityMain.progressBarHolder.visibility = View.GONE
-                        Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG)
-                            .show()
+                        Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG).show()
                         Timber.e(it)
                     })
                 }
@@ -459,7 +459,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) : OnStickerOperationListener {
+    internal class MyStickerOperationListener(
+        private val binding: ActivityMainBinding
+    ) : OnStickerOperationListener {
         override fun onStickerAdded(sticker: Sticker, direction: Int) {
             binding.stickerView.layoutSticker(sticker, direction)
             binding.stickerView.invalidate()
