@@ -256,7 +256,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun cropAll() {
-        stickerViewModel.stickers.value!!.forEach { (it as? DrawableSticker)?.cropDestructively(resources) }
+        stickerViewModel.stickers.value!!.forEach { sticker ->
+            (sticker as? DrawableSticker)?.cropDestructively(resources)
+        }
         binding.stickerView.invalidate()
         Toast.makeText(this, "Cropped all images.", Toast.LENGTH_SHORT).show()
     }
@@ -412,7 +414,6 @@ class MainActivity : AppCompatActivity() {
     ) : AsyncTask<Void, Void, Void>() {
         override fun onPreExecute() {
             super.onPreExecute()
-            context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
         }
 
         override fun doInBackground(vararg params: Void?): Void? {
@@ -426,26 +427,22 @@ class MainActivity : AppCompatActivity() {
                         val contentType = head.headers[Headers.CONTENT_TYPE]
                         if (!contentType.any { it.startsWith("image/") }) {
                             Toast.makeText(context, "Link is not an image", Toast.LENGTH_LONG).show()
-                            context.binding.activityMain.progressBarHolder.visibility = View.GONE
                             return@response
                         }
                         fuel.get(text).response { _, _, body ->
                             body.fold({
                                 val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
                                 context.doAddSticker(bitmap)
-                                context.binding.activityMain.progressBarHolder.visibility = View.GONE
                             }, {
                                 Toast.makeText(
                                     context,
                                     "Failed to download image: $it",
                                     Toast.LENGTH_LONG
                                 ).show()
-                                context.binding.activityMain.progressBarHolder.visibility = View.GONE
                                 Timber.e(it)
                             })
                         }
                     }, {
-                        context.binding.activityMain.progressBarHolder.visibility = View.GONE
                         Toast.makeText(context, "Failed to download image", Toast.LENGTH_LONG).show()
                         Timber.e(it)
                     })
@@ -453,7 +450,6 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Timber.e(e)
                 Toast.makeText(context, "Invalid link", Toast.LENGTH_LONG).show()
-                context.binding.activityMain.progressBarHolder.visibility = View.GONE
             }
             return null
         }
