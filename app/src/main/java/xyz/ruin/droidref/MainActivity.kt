@@ -41,7 +41,6 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
-
 class MainActivity : AppCompatActivity() {
     private lateinit var stickerViewModel: StickerViewModel
     private lateinit var binding: ActivityMainBinding
@@ -51,18 +50,14 @@ class MainActivity : AppCompatActivity() {
         Timber.plant(Timber.DebugTree())
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
-
         stickerViewModel = ViewModelProvider(this).get(StickerViewModel::class.java)
         stickerViewModel.stickerOperationListener = MyStickerOperationListener(binding)
         binding.viewModel = stickerViewModel
         binding.executePendingBindings()
         binding.lifecycleOwner = this
-
         setupIcons()
         setupButtons()
-
         handleIntent(intent)
         intent.type = null // Don't run again if rotated/etc.
     }
@@ -81,22 +76,19 @@ class MainActivity : AppCompatActivity() {
                     handleSendLink(intent)
                 }
             }
-            intent?.action == Intent.ACTION_SEND_MULTIPLE
-                    && intent.type?.startsWith("image/") == true -> {
+            intent?.action == Intent.ACTION_SEND_MULTIPLE && intent.type?.startsWith("image/") == true -> {
                 handleSendMultipleImages(intent)
             }
         }
     }
 
     private fun handleSendImage(intent: Intent) {
-        (intent.getParcelableExtra<Parcelable>(Intent.EXTRA_STREAM) as? Uri)?.let(this@MainActivity::doAddSticker)
+        (intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)?.let(this@MainActivity::doAddSticker)
     }
 
     private fun handleSendMultipleImages(intent: Intent) {
-        intent.getParcelableArrayListExtra<Parcelable>(Intent.EXTRA_STREAM)?.let { images ->
-            images.forEach {
-                (it as? Uri)?.let(this@MainActivity::doAddSticker)
-            }
+        intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)?.let { images ->
+            images.forEach { (it as? Uri)?.let(this@MainActivity::doAddSticker) }
         }
     }
 
@@ -105,15 +97,11 @@ class MainActivity : AppCompatActivity() {
     private fun handleSendLink(intent: Intent) {
         requestPermission(Manifest.permission.INTERNET)
         requestPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-
-        if (hasPermission(Manifest.permission.INTERNET)
-            && hasPermission(Manifest.permission.ACCESS_NETWORK_STATE))
-         {
+        if (hasPermission(Manifest.permission.INTERNET) && hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
             val text = intent.getStringExtra(Intent.EXTRA_TEXT)!!
             if (!isValidUrl(text)) {
                 Toast.makeText(this, "Invalid link", Toast.LENGTH_LONG).show()
             }
-
             FetchImageFromLinkTask(text, this).execute()
         }
     }
@@ -153,12 +141,7 @@ class MainActivity : AppCompatActivity() {
             BitmapStickerIcon.LEFT_BOTTOM
         )
         flipVerticallyIcon.iconEvent = FlipVerticallyEvent()
-        stickerViewModel.icons.value = arrayListOf(
-            deleteIcon,
-            zoomIcon,
-            flipIcon,
-            flipVerticallyIcon
-        )
+        stickerViewModel.icons.value = arrayListOf(deleteIcon, zoomIcon, flipIcon, flipVerticallyIcon)
         stickerViewModel.activeIcons.value = stickerViewModel.icons.value
     }
 
@@ -173,42 +156,30 @@ class MainActivity : AppCompatActivity() {
     private fun saveAs() {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Choose File Name")
-
         val formatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-        val defaultFileName: String =
-            formatter.format(Calendar.getInstance().time) + "." + SAVE_FILE_EXTENSION
-
+        val defaultFileName: String = formatter.format(Calendar.getInstance().time) + "." + SAVE_FILE_EXTENSION
         val input = EditText(this)
         input.inputType = InputType.TYPE_CLASS_TEXT
         input.setText(defaultFileName, TextView.BufferType.EDITABLE)
         builder.setView(input)
-
-        builder.setPositiveButton(
-            "OK"
-        ) { dialog, which -> doSave(input.text.toString()) }
-        builder.setNegativeButton(
-            "Cancel"
-        ) { dialog, which -> dialog.cancel() }
-
+        builder.setPositiveButton("OK") { dialog, which -> doSave(input.text.toString()) }
+        builder.setNegativeButton("Cancel") { dialog, which -> dialog.cancel() }
         builder.show()
     }
 
-    private fun getSaveDirectory() =
-        File(
-            listOf(
-                Environment.getExternalStorageDirectory().absolutePath,
-                Environment.DIRECTORY_PICTURES,
-                resources.getString(R.string.app_name)
-            ).joinToString(File.separator)
-        )
+    private fun getSaveDirectory() = File(
+        listOf(
+            Environment.getExternalStorageDirectory().absolutePath,
+            Environment.DIRECTORY_PICTURES,
+            resources.getString(R.string.app_name)
+        ).joinToString(File.separator)
+    )
 
     private fun doSave(fileName: String) {
         requestPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-
         if (hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
             val saveDir = getSaveDirectory()
             val file = File(saveDir, fileName)
-
             try {
                 saveDir.mkdirs()
                 StickerViewSerializer().serialize(stickerViewModel, file)
@@ -223,7 +194,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun load() {
         requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-
         if (hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
             val intent = Intent()
             intent.type = "*/*"
@@ -268,7 +238,6 @@ class MainActivity : AppCompatActivity() {
             ).show()
             return
         }
-
         try {
             val stream = contentResolver.openInputStream(file)!!
             StickerViewSerializer().deserialize(stickerViewModel, stream, resources)
@@ -290,9 +259,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun cropAll() {
-        stickerViewModel.stickers.value!!.forEach {
-            (it as? DrawableSticker)?.cropDestructively(resources)
-        }
+        stickerViewModel.stickers.value!!.forEach { (it as? DrawableSticker)?.cropDestructively(resources) }
         binding.stickerView.invalidate()
         Toast.makeText(this, "Cropped all images.", Toast.LENGTH_SHORT).show()
     }
@@ -301,7 +268,9 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent()
         intent.type = "image/*"
         intent.action = Intent.ACTION_GET_CONTENT
-        startActivityForResult(Intent.createChooser(intent, "Select Image"), INTENT_PICK_IMAGE)
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true) // ← ADDED: allow multiple selection
+        startActivityForResult(Intent.createChooser(intent, "Select Images"),
+            INTENT_PICK_IMAGE)
     }
 
     private fun doAddSticker(file: Uri) {
@@ -332,7 +301,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 bitmap
             }
-
             val drawable = BitmapDrawable(resources, newBitmap)
             stickerViewModel.addSticker(DrawableSticker(drawable))
         }
@@ -342,8 +310,15 @@ class MainActivity : AppCompatActivity() {
         if (resultCode == Activity.RESULT_OK) {
             when (requestCode) {
                 INTENT_PICK_IMAGE -> {
-                    val selectedImage = data!!.data!!
-                    doAddSticker(selectedImage)
+                    // ← MODIFIED: handle multiple images from clipData
+                    val clipData = data?.clipData
+                    if (clipData != null) {
+                        for (i in 0 until clipData.itemCount) {
+                            clipData.getItemAt(i).uri?.let { doAddSticker(it) }
+                        }
+                    } else {
+                        data?.data?.let { doAddSticker(it) }
+                    }
                 }
                 INTENT_PICK_SAVED_FILE -> {
                     val selectedFile = data!!.data!!
@@ -356,11 +331,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.buttonOpen.setOnClickListener { load() }
-
         binding.buttonSave.setOnClickListener { save() }
-
         binding.buttonSaveAs.setOnClickListener { saveAs() }
-
         binding.buttonNew.setOnClickListener {
             AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
@@ -370,59 +342,41 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton("No", null)
                 .show()
         }
-
         binding.buttonCropAll.setOnClickListener {
             AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("Confirm")
-                .setMessage("Are you sure you want to crop all images? This will permanently modify the images to match their cropped areas, but it can save  space and improve performance.")
+                .setMessage("Are you sure you want to crop all images? This will permanently modify the images to match their cropped areas, but it can save space and improve performance.")
                 .setPositiveButton("Yes") { _, _ -> cropAll() }
                 .setNegativeButton("No", null)
                 .show()
         }
-
-        binding.buttonAdd.setOnClickListener {
-            addSticker()
-        }
-
+        binding.buttonAdd.setOnClickListener { addSticker() }
         binding.buttonReset.setOnClickListener { stickerViewModel.resetView() }
-
         binding.buttonDuplicate.setOnClickListener { stickerViewModel.duplicateCurrentSticker() }
-
         binding.buttonLock.setOnCheckedChangeListener { _, isToggled ->
             stickerViewModel.isLocked.value = isToggled
         }
-
         binding.buttonCrop.setOnCheckedChangeListener { _, isToggled ->
             stickerViewModel.isCropActive.value = isToggled
         }
-
-        binding.buttonResetZoom.setOnClickListener {
-            stickerViewModel.resetCurrentStickerZoom()
-        }
-
-        binding.buttonResetCrop.setOnClickListener {
-            stickerViewModel.resetCurrentStickerCropping()
-        }
-
+        binding.buttonResetZoom.setOnClickListener { stickerViewModel.resetCurrentStickerZoom() }
+        binding.buttonResetCrop.setOnClickListener { stickerViewModel.resetCurrentStickerCropping() }
         binding.buttonHideShowUI.setOnCheckedChangeListener { _, isToggled ->
             setUIVisibility(isToggled)
         }
         binding.buttonRotate.setOnLongClickListener {
-            stickerViewModel.resetCurrentStickerRotation();
-            true
+            stickerViewModel.resetCurrentStickerRotation(); true
         }
     }
 
     private fun setUIVisibility(isToggled: Boolean) {
         if (isToggled) {
-            binding.toolbarTop.visibility = View.GONE;
-            binding.toolbarBottom.visibility = View.GONE;
+            binding.toolbarTop.visibility = View.GONE; binding.toolbarBottom.visibility = View.GONE;
             val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_off_24)
             binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
         } else {
-            binding.toolbarTop.visibility = View.VISIBLE;
-            binding.toolbarBottom.visibility = View.VISIBLE;
+            binding.toolbarTop.visibility = View.VISIBLE; binding.toolbarBottom.visibility = View.VISIBLE;
             val top = ContextCompat.getDrawable(this, R.drawable.ic_baseline_visibility_24)
             binding.buttonHideShowUI.setCompoundDrawablesWithIntrinsicBounds(null, top, null, null)
         }
@@ -438,11 +392,10 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun hasPermission(permission: String) =
-        ActivityCompat.checkSelfPermission(
-            this,
-            permission
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun hasPermission(permission: String) = ActivityCompat.checkSelfPermission(
+        this,
+        permission
+    ) == PackageManager.PERMISSION_GRANTED
 
     private fun requestPermission(permission: String) {
         if (!hasPermission(permission)) {
@@ -454,8 +407,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    internal class FetchImageFromLinkTask(val text: String, val context: MainActivity) :
-        AsyncTask<Void, Void, Void>() {
+    internal class FetchImageFromLinkTask(val text: String, val context: MainActivity) : AsyncTask() {
         override fun onPreExecute() {
             super.onPreExecute()
             context.binding.activityMain.progressBarHolder.visibility = View.VISIBLE
@@ -464,9 +416,7 @@ class MainActivity : AppCompatActivity() {
         override fun doInBackground(vararg params: Void?): Void? {
             try {
                 val fuel = FuelManager()
-                fuel.baseHeaders =
-                    mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
-
+                fuel.baseHeaders = mapOf(Headers.USER_AGENT to "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0")
                 fuel.head(text).response { _, head, result ->
                     result.fold({
                         val contentType = head.headers[Headers.CONTENT_TYPE]
@@ -476,14 +426,12 @@ class MainActivity : AppCompatActivity() {
                             context.binding.activityMain.progressBarHolder.visibility = View.GONE
                             return@response
                         }
-
                         fuel.get(text)
                             .response { _, _, body ->
                                 body.fold({
                                     val bitmap = BitmapFactory.decodeByteArray(it, 0, it.size)
                                     context.doAddSticker(bitmap)
-                                    context.binding.activityMain.progressBarHolder.visibility =
-                                        View.GONE
+                                    context.binding.activityMain.progressBarHolder.visibility = View.GONE
                                 }, {
                                     Toast.makeText(
                                         context,
@@ -491,8 +439,7 @@ class MainActivity : AppCompatActivity() {
                                         Toast.LENGTH_LONG
                                     )
                                         .show()
-                                    context.binding.activityMain.progressBarHolder.visibility =
-                                        View.GONE
+                                    context.binding.activityMain.progressBarHolder.visibility = View.GONE
                                     Timber.e(it)
                                 })
                             }
@@ -512,57 +459,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) :
-        OnStickerOperationListener {
+    internal class MyStickerOperationListener(private val binding: ActivityMainBinding) : OnStickerOperationListener {
         override fun onStickerAdded(sticker: Sticker, direction: Int) {
             binding.stickerView.layoutSticker(sticker, direction)
             binding.stickerView.invalidate()
         }
-
-        override fun onStickerClicked(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerDeleted(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerDragFinished(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerTouchedDown(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerZoomFinished(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerFlipped(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerDoubleTapped(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onStickerMoved(sticker: Sticker) {
-            binding.stickerView.invalidate()
-        }
-
-        override fun onInvalidateView() {
-            binding.stickerView.invalidate()
-        }
+        override fun onStickerClicked(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerDeleted(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerDragFinished(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerTouchedDown(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerZoomFinished(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerFlipped(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerDoubleTapped(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onStickerMoved(sticker: Sticker) { binding.stickerView.invalidate() }
+        override fun onInvalidateView() { binding.stickerView.invalidate() }
     }
 
     companion object {
         const val PERM_RQST_CODE = 110
         const val SAVE_FILE_EXTENSION: String = "ref"
-
         const val INTENT_PICK_IMAGE = 1
         const val INTENT_PICK_SAVED_FILE = 2
-
         const val MAX_SIZE_PIXELS = 2000 * 2000
     }
 }
