@@ -8,7 +8,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 11
+      - name: Make gradlew executable
+        run: chmod +x gradlew
       - name: Build debug APK
         run: ./gradlew assembleDebug
       - name: Upload APK
